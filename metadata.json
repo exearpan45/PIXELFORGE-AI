@@ -1,0 +1,6 @@
+{
+  "name": "PIXELFORGE AI - Free AI Photo & Video Upscaler to 4K",
+  "description": "Enhance photos and videos with free browser-based AI processing. Upscale images and videos up to 4K without uploading your media to a server.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
