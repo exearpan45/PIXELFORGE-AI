@@ -56,7 +56,7 @@ export async function parseVideoMetadata(file: File): Promise<{ metadata: VideoM
     const url = URL.createObjectURL(file);
     video.src = url;
 
-    video.onloadedmetadata = () => {
+    video.onloadeddata = () => {
       const duration = video.duration || 1;
       const width = video.videoWidth || 1280;
       const height = video.videoHeight || 720;
@@ -162,8 +162,8 @@ export class VideoEnhancerService {
     // 2. Stage: File & Bounds Validation
     tracker.startStage('file_validation', 'File Bounds Validation', `Validating duration: ${originalMetadata.duration.toFixed(1)}s`);
     await yieldThread(10);
-    const duration = Math.min(originalMetadata.duration, 300); // Max 5 min
-    tracker.completeStage('file_validation', `Validated duration: ${duration.toFixed(1)}s`);
+    const duration = originalMetadata.duration;
+    tracker.completeStage('file_validation', `Validated duration: ${duration.toFixed(1)}s • ${(originalMetadata.sizeBytes / 1024 / 1024).toFixed(1)} MB`);
 
     // 3. Stage: Resolution Target Calculation
     tracker.startStage('metadata_parsed', 'Target Resolution Compute', `Scaling target: ${targetResolution}`);
@@ -177,13 +177,13 @@ export class VideoEnhancerService {
     tracker.startStage('device_check', 'Hardware Compatibility Check', 'Inspecting GPU and core limits');
     const hardware = await detectHardwareCapabilities();
     const effectivePreset: ProcessingPreset = hardware.isLowEndDevice ? 'eco' : preset;
-    // ECO uses a lightweight canvas path capped at 1280×720 and 8 fps.
+    // ECO is intentionally conservative for older 4-thread / 4GB laptops.
     const ecoScale = Math.min(
       requestedDimensions.width / originalMetadata.width,
       requestedDimensions.height / originalMetadata.height,
-      2,
-      1280 / originalMetadata.width,
-      720 / originalMetadata.height
+      1.5,
+      854 / originalMetadata.width,
+      480 / originalMetadata.height
     );
     const targetW = effectivePreset === 'eco'
       ? Math.max(1, Math.round(originalMetadata.width * ecoScale))
@@ -191,8 +191,14 @@ export class VideoEnhancerService {
     const targetH = effectivePreset === 'eco'
       ? Math.max(1, Math.round(originalMetadata.height * ecoScale))
       : requestedDimensions.height;
-    const fps = effectivePreset === 'eco' ? Math.min(settings.targetFps || 30, 8) : (settings.targetFps || 30);
+    const fps = effectivePreset === 'eco' ? 5 : Math.min(settings.targetFps || 30, 30);
     const totalFrames = Math.max(1, Math.round(duration * fps));
+    if (effectivePreset === 'eco' && duration > 30) {
+      throw new Error('ECO mode is limited to 30-second clips on low-resource devices. Trim the video and try again to reduce freezing risk.');
+    }
+    if (effectivePreset === 'eco' && originalMetadata.sizeBytes > 100 * 1024 * 1024) {
+      throw new Error('ECO mode is limited to source videos up to 100 MB. Use a shorter or smaller video on this device.');
+    }
     tracker.completeStage(
       'device_check',
       `Preset: ${effectivePreset.toUpperCase()} • ${hardware.webglRenderer || 'GPU'} • ${fps} fps • ${targetW}×${targetH}`
@@ -266,8 +272,12 @@ export class VideoEnhancerService {
     const renderOutputFrame = () => {
       if (ecoContext) {
         ecoContext.imageSmoothingEnabled = true;
-        ecoContext.imageSmoothingQuality = 'medium';
+        ecoContext.imageSmoothingQuality = 'low';
+        const detail = Math.max(0, Math.min(100, settings.detailRestoration)) / 100;
+        const color = Math.max(0, Math.min(100, settings.colorEnhancement)) / 100;
+        ecoContext.filter = `contrast(${1 + detail * 0.18}) saturate(${1 + color * 0.35})`;
         ecoContext.drawImage(videoSource, 0, 0, targetW, targetH);
+        ecoContext.filter = 'none';
       } else {
         this.pipeline.renderFrame(
           videoSource,
@@ -330,7 +340,7 @@ export class VideoEnhancerService {
     // Conservative bitrate by preset to prevent encoder CPU stalls on Core i3
     const targetBitrate =
       effectivePreset === 'eco'
-        ? 1200000
+        ? 450000
         : targetW >= 2560 ? 14000000 : 8000000;
 
     const recordedChunks: Blob[] = [];
@@ -352,7 +362,7 @@ export class VideoEnhancerService {
 
     // 11. Record in real time. The previous seek-per-frame loop added a
     // fixed wait to every frame, making exported videos play much slower.
-    tracker.startStage('batch_processing', 'Real-Time Video Capture', 'Recording playback at the ECO frame cap');
+    tracker.startStage('batch_processing', 'Real-Time Video Capture', `Recording at ${fps} FPS and ${targetW}×${targetH}`);
     const watchdog = new ResourceProtectionWatchdog(effectivePreset);
     const startTime = Date.now();
     let processedFrames = 0;
