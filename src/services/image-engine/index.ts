@@ -30,42 +30,27 @@ export function calculateTargetDimensions(
       return { width: Math.round(origW * 4), height: Math.round(origH * 4) };
 
     case '1080p': {
-      // 1920x1080 standard target
-      if (aspect >= 16 / 9) {
-        const width = 1920;
-        const height = Math.round(width / aspect);
-        return { width, height };
-      } else {
-        const height = 1080;
-        const width = Math.round(height * aspect);
-        return { width, height };
-      }
+      // Preserve aspect ratio and make the longer edge 1920px (portrait or landscape).
+      const longEdge = 1920;
+      return aspect >= 1
+        ? { width: longEdge, height: Math.max(1, Math.round(longEdge / aspect)) }
+        : { width: Math.max(1, Math.round(longEdge * aspect)), height: longEdge };
     }
 
     case '1440p': {
-      // 2560x1440 (2K QHD) target
-      if (aspect >= 16 / 9) {
-        const width = 2560;
-        const height = Math.round(width / aspect);
-        return { width, height };
-      } else {
-        const height = 1440;
-        const width = Math.round(height * aspect);
-        return { width, height };
-      }
+      // Preserve aspect ratio and make the longer edge 2560px.
+      const longEdge = 2560;
+      return aspect >= 1
+        ? { width: longEdge, height: Math.max(1, Math.round(longEdge / aspect)) }
+        : { width: Math.max(1, Math.round(longEdge * aspect)), height: longEdge };
     }
 
     case '4k': {
-      // 3840x2160 (4K UHD) target
-      if (aspect >= 16 / 9) {
-        const width = 3840;
-        const height = Math.round(width / aspect);
-        return { width, height };
-      } else {
-        const height = 2160;
-        const width = Math.round(height * aspect);
-        return { width, height };
-      }
+      // 4K UHD means a 3840px long edge. Portrait 9:16 becomes 2160×3840.
+      const longEdge = 3840;
+      return aspect >= 1
+        ? { width: longEdge, height: Math.max(1, Math.round(longEdge / aspect)) }
+        : { width: Math.max(1, Math.round(longEdge * aspect)), height: longEdge };
     }
 
     default:
