@@ -22,7 +22,9 @@ export const VideoComparisonPlayer: React.FC<VideoComparisonPlayerProps> = ({
   const [isMuted, setIsMuted] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(originalMetadata.duration || 1);
-  const [viewMode, setViewMode] = useState<'side-by-side' | 'enhanced-only'>('side-by-side');
+  // Default to one decoded video on screen. Side-by-side doubles decoder work
+  // and can stutter on older integrated-GPU laptops.
+  const [viewMode, setViewMode] = useState<'side-by-side' | 'enhanced-only'>('enhanced-only');
 
   const formatTime = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -42,16 +44,18 @@ export const VideoComparisonPlayer: React.FC<VideoComparisonPlayerProps> = ({
   const togglePlay = () => {
     const orig = origVideoRef.current;
     const enh = enhVideoRef.current;
-    if (!orig || !enh) return;
+    if (!enh) return;
 
     if (isPlaying) {
-      orig.pause();
+      orig?.pause();
       enh.pause();
       setIsPlaying(false);
     } else {
-      // Sync positions before playing
-      orig.currentTime = enh.currentTime;
-      orig.play().catch(() => {});
+      // Keep the original aligned only when the comparison view is mounted.
+      if (orig) {
+        orig.currentTime = enh.currentTime;
+        orig.play().catch(() => {});
+      }
       enh.play().catch(() => {});
       setIsPlaying(true);
     }
