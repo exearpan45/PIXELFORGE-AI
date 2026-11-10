@@ -130,7 +130,7 @@ export const VideoComparisonPlayer: React.FC<VideoComparisonPlayerProps> = ({
                 className="w-full h-full object-contain"
               />
               <div className="absolute top-3 right-3 px-2.5 py-1 rounded-md bg-purple-950/90 backdrop-blur-md border border-purple-500/40 text-[11px] font-bold text-purple-200">
-                PIXELFORGE 4K ({enhancedResult.targetWidth}×{enhancedResult.targetHeight})
+                PIXELFORGE OUTPUT ({enhancedResult.targetWidth}×{enhancedResult.targetHeight})
               </div>
             </div>
           </div>
@@ -147,7 +147,7 @@ export const VideoComparisonPlayer: React.FC<VideoComparisonPlayerProps> = ({
               className="w-full h-full object-contain"
             />
             <div className="absolute top-3 right-3 px-2.5 py-1 rounded-md bg-purple-950/90 backdrop-blur-md border border-purple-500/40 text-[11px] font-bold text-purple-200">
-              PIXELFORGE 4K ({enhancedResult.targetWidth}×{enhancedResult.targetHeight})
+              PIXELFORGE OUTPUT ({enhancedResult.targetWidth}×{enhancedResult.targetHeight})
             </div>
           </div>
         )}
@@ -234,7 +234,7 @@ export const VideoComparisonPlayer: React.FC<VideoComparisonPlayerProps> = ({
                   viewMode === 'enhanced-only' ? 'bg-purple-600 text-white shadow-md' : 'text-zinc-400 hover:text-white'
                 }`}
               >
-                <span>4K View Only</span>
+                <span>Output Only</span>
               </button>
             </div>
 
@@ -244,7 +244,7 @@ export const VideoComparisonPlayer: React.FC<VideoComparisonPlayerProps> = ({
               className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-purple-600/30 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
             >
               <Download className="w-4 h-4" />
-              <span>Download 4K Video</span>
+              <span>Download Video</span>
             </button>
           </div>
         </div>
@@ -259,7 +259,7 @@ export const VideoComparisonPlayer: React.FC<VideoComparisonPlayerProps> = ({
         </div>
 
         <div className="p-3.5 rounded-xl bg-purple-950/30 border border-purple-500/20 space-y-1">
-          <span className="text-[10px] text-purple-300 uppercase tracking-wider font-semibold">Enhanced 4K Target</span>
+          <span className="text-[10px] text-purple-300 uppercase tracking-wider font-semibold">Enhanced Output</span>
           <p className="font-mono text-purple-200 font-bold">{enhancedResult.targetWidth} × {enhancedResult.targetHeight} px</p>
           <span className="text-[10px] text-purple-400 font-mono">{formatBytes(enhancedResult.sizeBytes)}</span>
         </div>
@@ -268,7 +268,7 @@ export const VideoComparisonPlayer: React.FC<VideoComparisonPlayerProps> = ({
           <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">Audio Track Status</span>
           <p className={`font-mono font-bold flex items-center gap-1 ${enhancedResult.hasAudio ? 'text-emerald-400' : 'text-amber-400'}`}>
             <CheckCircle className="w-3.5 h-3.5" />
-            {enhancedResult.hasAudio ? 'Preserved (In Sync)' : 'No Audio in Source'}
+            {enhancedResult.hasAudio ? 'Preserved (In Sync)' : 'No Audio in Output'}
           </p>
           <span className="text-[10px] text-zinc-500">Duration: {originalMetadata.duration.toFixed(1)}s</span>
         </div>
@@ -276,7 +276,7 @@ export const VideoComparisonPlayer: React.FC<VideoComparisonPlayerProps> = ({
         <div className="p-3.5 rounded-xl bg-[#10101b] border border-white/8 space-y-1">
           <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">Encoding & Container</span>
           <p className="font-mono text-zinc-200 font-bold">{enhancedResult.format.toUpperCase()}</p>
-          <span className="text-[10px] text-emerald-400 font-medium">True High-Bitrate 4K</span>
+          <span className="text-[10px] text-emerald-400 font-medium">WebM video export</span>
         </div>
       </div>
     </div>
