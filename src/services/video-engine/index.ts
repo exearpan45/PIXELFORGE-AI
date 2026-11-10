@@ -157,27 +157,41 @@ export class VideoEnhancerService {
     tracker.startStage('file_validation', 'File Bounds Validation', `Validating duration: ${originalMetadata.duration.toFixed(1)}s`);
     await yieldThread(10);
     const duration = Math.min(originalMetadata.duration, 300); // Max 5 min
-    const fps = settings.targetFps || 30;
-    const totalFrames = Math.max(1, Math.round(duration * fps));
-    tracker.completeStage('file_validation', `Validated (${totalFrames} frames)`);
+    tracker.completeStage('file_validation', `Validated duration: ${duration.toFixed(1)}s`);
 
     // 3. Stage: Resolution Target Calculation
     tracker.startStage('metadata_parsed', 'Target Resolution Compute', `Scaling target: ${targetResolution}`);
-    const { width: targetW, height: targetH } = calculateTargetDimensions(
+    const requestedDimensions = calculateTargetDimensions(
       originalMetadata.width,
       originalMetadata.height,
       targetResolution
     );
-    tracker.completeStage('metadata_parsed', `Target grid: ${targetW}×${targetH}`);
 
     // 4. Stage: Device Compatibility & Preset Check
     tracker.startStage('device_check', 'Hardware Compatibility Check', 'Inspecting GPU and core limits');
     const hardware = await detectHardwareCapabilities();
     const effectivePreset: ProcessingPreset = hardware.isLowEndDevice ? 'eco' : preset;
+    // ECO uses a lightweight canvas path capped at 1280×720 and 8 fps.
+    const ecoScale = Math.min(
+      requestedDimensions.width / originalMetadata.width,
+      requestedDimensions.height / originalMetadata.height,
+      2,
+      1280 / originalMetadata.width,
+      720 / originalMetadata.height
+    );
+    const targetW = effectivePreset === 'eco'
+      ? Math.max(1, Math.round(originalMetadata.width * ecoScale))
+      : requestedDimensions.width;
+    const targetH = effectivePreset === 'eco'
+      ? Math.max(1, Math.round(originalMetadata.height * ecoScale))
+      : requestedDimensions.height;
+    const fps = effectivePreset === 'eco' ? Math.min(settings.targetFps || 30, 8) : (settings.targetFps || 30);
+    const totalFrames = Math.max(1, Math.round(duration * fps));
     tracker.completeStage(
       'device_check',
-      `Preset: ${effectivePreset.toUpperCase()} • ${hardware.webglRenderer || 'GPU'}`
+      `Preset: ${effectivePreset.toUpperCase()} • ${hardware.webglRenderer || 'GPU'} • ${fps} fps • ${targetW}×${targetH}`
     );
+    tracker.completeStage('metadata_parsed', `Output grid: ${targetW}×${targetH}`);
 
     // 5. Stage: WebGL Pipeline & Shader Verification
     tracker.startStage('gl_pipeline_init', 'Shader Pipeline Verification', 'Checking WebGL 2.0 Super-Resolution shaders');
@@ -195,7 +209,7 @@ export class VideoEnhancerService {
     let audioDestNode: MediaStreamAudioDestinationNode | null = null;
 
     tracker.startStage('audio_stream_init', 'Audio Stream Preparation', 'Preparing audio preservation');
-    if (settings.preserveAudio && originalMetadata.hasAudio && originalMetadata.videoFile) {
+    if (settings.preserveAudio && originalMetadata.hasAudio && originalMetadata.videoFile && effectivePreset !== 'eco') {
       if (!audioBuffer) {
         audioBuffer = await extractAudioBufferSafely(originalMetadata.videoFile);
       }
@@ -220,16 +234,45 @@ export class VideoEnhancerService {
         tracker.completeStage('audio_stream_init', 'No audio stream found or preserved');
       }
     } else {
-      tracker.completeStage('audio_stream_init', 'Preserve audio not requested or no audio');
+      tracker.completeStage(
+        'audio_stream_init',
+        effectivePreset === 'eco'
+          ? 'Audio skipped in ECO mode to protect low-memory devices'
+          : 'Preserve audio not requested or no audio'
+      );
     }
 
-    // 7. Stage: Direct WebGL Canvas Stream Buffer Allocation
+    // 7. Stage: Select lightweight 2D canvas for ECO, WebGL for stronger devices
     tracker.startStage('buffer_allocation', 'Direct Stream Allocation', `Allocating ${targetW}×${targetH} WebGL canvas`);
     await yieldThread(10);
-    const webglCanvas = this.pipeline.getCanvas();
-    webglCanvas.width = targetW;
-    webglCanvas.height = targetH;
-    const canvasStream = webglCanvas.captureStream(fps);
+    const ecoCanvas = effectivePreset === 'eco' ? document.createElement('canvas') : null;
+    const ecoContext = ecoCanvas
+      ? ecoCanvas.getContext('2d', { alpha: false, desynchronized: true })
+      : null;
+    if (effectivePreset === 'eco' && (!ecoCanvas || !ecoContext)) {
+      throw new Error('Low-resource 2D canvas is unavailable in this browser.');
+    }
+    const outputCanvas = ecoCanvas || this.pipeline.getCanvas();
+    outputCanvas.width = targetW;
+    outputCanvas.height = targetH;
+    const canvasStream = outputCanvas.captureStream(fps);
+
+    const renderOutputFrame = () => {
+      if (ecoContext) {
+        ecoContext.imageSmoothingEnabled = true;
+        ecoContext.imageSmoothingQuality = 'medium';
+        ecoContext.drawImage(videoSource, 0, 0, targetW, targetH);
+      } else {
+        this.pipeline.renderFrame(
+          videoSource,
+          originalMetadata.width,
+          originalMetadata.height,
+          targetW,
+          targetH,
+          settings
+        );
+      }
+    };
 
     if (audioDestNode) {
       const audioTracks = audioDestNode.stream.getAudioTracks();
@@ -237,7 +280,7 @@ export class VideoEnhancerService {
         canvasStream.addTrack(audioTracks[0]);
       }
     }
-    tracker.completeStage('buffer_allocation', 'Zero-copy direct stream connected');
+    tracker.completeStage('buffer_allocation', effectivePreset === 'eco' ? 'Lightweight 2D canvas stream connected' : 'WebGL canvas stream connected');
 
     // 8. Stage: Test Frame Extraction (Warming up video decoder)
     tracker.startStage('test_frame_extract', 'Test Frame Extraction', 'Seeking to 0.05s to prime decoder');
@@ -255,13 +298,13 @@ export class VideoEnhancerService {
     // 9. Stage: Test Frame AI / WebGL Processing Verification
     tracker.startStage('test_frame_process', 'Test Frame Inference Verification', 'Executing 1 test frame');
     const t0 = performance.now();
-    this.pipeline.renderFrame(videoSource, originalMetadata.width, originalMetadata.height, targetW, targetH, settings);
+    renderOutputFrame();
     const testFrameDuration = Math.round(performance.now() - t0);
     tracker.completeStage('test_frame_process', `Rendered in ${testFrameDuration}ms`);
 
     // 10. Stage: Encoder Configuration
     tracker.startStage('encoder_init', 'MediaRecorder Configuration', 'Selecting container and bitrate');
-    let mimeType = 'video/webm;codecs=vp9,opus';
+    let mimeType = effectivePreset === 'eco' ? 'video/webm;codecs=vp8' : 'video/webm;codecs=vp9,opus';
     if (!MediaRecorder.isTypeSupported(mimeType)) {
       mimeType = 'video/webm;codecs=vp8,opus';
       if (!MediaRecorder.isTypeSupported(mimeType)) {
@@ -275,7 +318,7 @@ export class VideoEnhancerService {
     // Conservative bitrate by preset to prevent encoder CPU stalls on Core i3
     const targetBitrate =
       effectivePreset === 'eco'
-        ? targetW >= 2560 ? 8000000 : 4000000
+        ? 1500000
         : targetW >= 2560 ? 14000000 : 8000000;
 
     const recordedChunks: Blob[] = [];
@@ -347,14 +390,7 @@ export class VideoEnhancerService {
 
         // D. Measure Frame Render Latency
         const frameStart = performance.now();
-        this.pipeline.renderFrame(
-          videoSource,
-          originalMetadata.width,
-          originalMetadata.height,
-          targetW,
-          targetH,
-          settings
-        );
+        renderOutputFrame();
         const frameLatency = performance.now() - frameStart;
         processedFrames++;
 
