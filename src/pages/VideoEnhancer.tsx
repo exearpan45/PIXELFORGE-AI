@@ -300,10 +300,10 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
             )}
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-1">
-            AI Video Upscaler to 4K
+            Video Upscaler & Enhancer
           </h1>
           <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-            Reconstruct and upscale video frames locally in your browser with synchronized audio.
+            Upscale video locally in your browser. Audio support depends on the selected processing mode.
           </p>
         </div>
 
@@ -355,7 +355,7 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
               Drop your video here, or <span className="text-purple-400 group-hover:underline">browse files</span>
             </h3>
             <p className="text-xs sm:text-sm text-zinc-400 max-w-md mb-4">
-              Upscale video up to 4K resolution (MP4, WebM, MOV) with full audio track preservation.
+              Upload MP4, WebM or MOV. Output resolution and audio support depend on your device's processing mode.
             </p>
             <div className="flex gap-2 text-[11px] font-mono text-zinc-400">
               <span className="px-2 py-0.5 rounded bg-black/40 border border-white/8">720p</span>
@@ -399,7 +399,7 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
                         {enhancedResult.targetWidth}×{enhancedResult.targetHeight} Output Ready
                       </h4>
                       <p className="text-xs text-zinc-400">
-                        {formatBytes(enhancedResult.sizeBytes)} • {enhancedResult.hasAudio ? 'Preserved Audio' : 'No Audio'} • {(enhancedResult.duration).toFixed(1)}s
+                        {formatBytes(enhancedResult.sizeBytes)} • {enhancedResult.hasAudio ? 'Audio Included' : 'Audio Not Included'} • {(enhancedResult.duration).toFixed(1)}s
                       </p>
                     </div>
                   </div>
@@ -652,7 +652,7 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
                 >
                   <Sparkles className="w-4 h-4" />
                   <span>
-                    {enhancedResult ? 'Re-Process Video' : `Enhance Video to ${settings.resolution.toUpperCase()}`}
+                    {enhancedResult ? 'Re-Process Video' : `Enhance Video to ${estimatedDims ? `${estimatedDims.width}×${estimatedDims.height}` : settings.resolution.toUpperCase()}`}
                   </span>
                 </button>
                 <p className="text-[11px] text-zinc-500 text-center mt-2">
