@@ -61,7 +61,9 @@ export async function detectHardwareCapabilities(): Promise<HardwareInfo> {
   const isLowCoreCount = hardwareConcurrency <= 4;
 
   // Intel Core i3-5005U (4 threads, 4GB RAM, HD Graphics 5500) will be accurately identified as low-end
-  const isLowEndDevice = isConstrainedMemory || (isLowCoreCount && isIntelIntegratedOld) || hardwareConcurrency <= 2 || isSoftwareRenderer;
+  // Four logical threads is already a constrained tier for sustained browser video rendering.
+  // This deliberately errs on the safe side for older dual-core / four-thread laptops.
+  const isLowEndDevice = isConstrainedMemory || hardwareConcurrency <= 4 || (isLowCoreCount && isIntelIntegratedOld) || isSoftwareRenderer;
 
   cachedHardwareInfo = {
     hasWebGPU,
