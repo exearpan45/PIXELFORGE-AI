@@ -15,20 +15,20 @@
 - ECO mode uses a separate lightweight 2D canvas path instead of the multi-sample WebGL shader.
 - ECO output is capped at **1280 × 720**, with a maximum enlargement factor of **2×**.
 - ECO output is capped at **8 frames per second**.
-- ECO skips full-file audio decoding to avoid allocating a second copy of a large video in memory. Audio is therefore not included in ECO exports.
+- ECO captures the source audio track through Web Audio and combines it with the canvas stream, avoiding a full-file AudioBuffer decode. A synthetic WebM-with-audio test confirmed one output audio track in the remote browser.
 - ECO uses a lower-bitrate VP8 WebM export path.
 - Balanced and Quality presets are disabled when the hardware detector classifies the device as low-end.
-- ECO-only enhancement sliders and the audio-preservation toggle are disabled because those controls are not applied by the lightweight 2D path.
+- ECO-only image-effect sliders remain disabled because those shader controls are not applied by the lightweight 2D path. Audio preservation remains available through a separate Web Audio capture path.
 - The UI now reports actual output dimensions and no longer labels a 1280 × 720 file as 4K.
 - The workload monitor now shows frame-render timing and JavaScript heap information only. It explicitly states that browsers cannot report system-wide CPU percentage or total RAM use.
 
 ## Important trade-offs and limitations
 
 - ECO is a compatibility/performance mode, **not neural-network super-resolution**. It uses browser 2D canvas interpolation. It can enlarge an image, but it does not invent fine detail like a trained AI upscaler.
-- ECO output is limited to 720p and 8 FPS and has no audio track. It is not intended for 4K production exports.
+- ECO output is limited to 720p and 8 FPS. It can preserve an audio track when the browser exposes the source audio and supports Web Audio capture. It is not intended for 4K production exports.
 - These changes reduce work per frame but cannot guarantee that every low-end device will remain responsive. Browser, codec, thermal, driver, and source-file differences still matter.
 - The browser cannot reliably expose the user's real system CPU percentage or total RAM consumption to this application.
 
 ## Verification status
 
-A remote browser smoke test using the built-in 3-second 640 × 360 synthetic clip completed and produced a 1280 × 720 WebM output. This verifies the deployed flow in that browser environment only. It does **not** prove that the user's Dell Inspiron 15 3558 will avoid 100% CPU or freezing. A short local test on that laptop remains necessary before treating the change as verified on the target hardware.
+Remote browser tests verified 2160 × 3840 portrait image output, a 1280 × 720 video with duration close to the source, and one preserved audio track from a synthetic test clip. These tests verify the deployed flow in that browser environment only. They do **not** prove that the user's Dell Inspiron 15 3558 will avoid 100% CPU or freezing. A short local test on that laptop remains necessary.
