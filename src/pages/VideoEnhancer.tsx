@@ -268,9 +268,9 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
         const scale = Math.min(
           requested.width / metadata.width,
           requested.height / metadata.height,
-          2,
-          1280 / metadata.width,
-          720 / metadata.height
+          1.5,
+          854 / metadata.width,
+          480 / metadata.height
         );
         return {
           width: Math.max(1, Math.round(metadata.width * scale)),
