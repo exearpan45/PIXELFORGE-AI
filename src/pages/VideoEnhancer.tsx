@@ -451,7 +451,7 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
                   <h3 className="text-sm font-bold text-white tracking-wide">Video Upscale Controls</h3>
                 </div>
                 <span className="text-[11px] font-mono text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
-                  AI Studio
+                  Video Studio
                 </span>
               </div>
 
@@ -556,7 +556,7 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
                 {/* AI Detail */}
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-xs">
-                    <span className="font-medium text-zinc-300">AI Frame Detail</span>
+                    <span className="font-medium text-zinc-300">Frame Detail</span>
                     <span className="font-mono text-purple-400">{settings.detailRestoration}%</span>
                   </div>
                   <input
@@ -692,7 +692,7 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
           onCancel={handleCancel}
           onPause={handlePause}
           onResume={handleResume}
-          title={`Enhancing Video to ${settings.resolution.toUpperCase()}`}
+          title={`Enhancing Video to ${estimatedDims ? `${estimatedDims.width}×${estimatedDims.height}` : settings.resolution.toUpperCase()}`}
         />
       )}
 
