@@ -150,6 +150,14 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
   const startVideoEnhancement = async () => {
     if (!videoElementRef.current || !metadata || !videoFile) return;
 
+    if (preset === 'eco' || hardware?.isLowEndDevice) {
+      onNotify(
+        'warning',
+        'Low-resource video mode',
+        'Output is limited to at most 1280×720 at 8 FPS. ECO mode omits audio to avoid loading the full video into memory.'
+      );
+    }
+
     setIsProcessing(true);
     const cancelToken = createAdvancedCancellationToken();
     cancellationTokenRef.current = cancelToken;
@@ -254,7 +262,21 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
   };
 
   const estimatedDims = metadata
-    ? calculateTargetDimensions(metadata.width, metadata.height, settings.resolution)
+    ? (() => {
+        const requested = calculateTargetDimensions(metadata.width, metadata.height, settings.resolution);
+        if (preset !== 'eco' && !hardware?.isLowEndDevice) return requested;
+        const scale = Math.min(
+          requested.width / metadata.width,
+          requested.height / metadata.height,
+          2,
+          1280 / metadata.width,
+          720 / metadata.height
+        );
+        return {
+          width: Math.max(1, Math.round(metadata.width * scale)),
+          height: Math.max(1, Math.round(metadata.height * scale)),
+        };
+      })()
     : null;
 
   return (
@@ -487,6 +509,7 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
                     🛡️ ECO
                   </button>
                   <button
+                    disabled={Boolean(hardware?.isLowEndDevice)}
                     onClick={() => setPreset('balanced')}
                     className={`py-2 px-1.5 rounded-xl text-xs font-bold transition-all text-center ${
                       preset === 'balanced'
@@ -497,6 +520,7 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
                     ⚖️ Balanced
                   </button>
                   <button
+                    disabled={Boolean(hardware?.isLowEndDevice)}
                     onClick={() => setPreset('quality')}
                     className={`py-2 px-1.5 rounded-xl text-xs font-bold transition-all text-center ${
                       preset === 'quality'
@@ -516,7 +540,7 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
                   <div>
                     <span className="font-semibold text-emerald-300">Low-Resource Protection Active</span>
                     <p className="text-[11px] text-zinc-400 mt-0.5">
-                      Yields 25ms between frame batches to keep CPU load moderate and prevent laptop screen freeze.
+                      Uses lightweight 2D scaling, caps output at 1280×720 and 8 FPS, and skips audio decoding. This reduces workload but cannot guarantee every device will remain responsive.
                     </p>
                   </div>
                 </div>
