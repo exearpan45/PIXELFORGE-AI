@@ -547,6 +547,11 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
               )}
 
               {/* Sliders */}
+              {(preset === 'eco' || hardware?.isLowEndDevice) && (
+                <p className="text-[11px] leading-relaxed text-emerald-200/80">
+                  ECO uses lightweight canvas scaling. Detail, denoise, sharpening, and color controls are disabled in this mode.
+                </p>
+              )}
               <div className="space-y-4 pt-1">
                 {/* AI Detail */}
                 <div className="space-y-1.5">
@@ -556,6 +561,7 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
                   </div>
                   <input
                     type="range"
+                    disabled={preset === 'eco' || Boolean(hardware?.isLowEndDevice)}
                     min="0"
                     max="100"
                     value={settings.detailRestoration}
@@ -574,6 +580,7 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
                   </div>
                   <input
                     type="range"
+                    disabled={preset === 'eco' || Boolean(hardware?.isLowEndDevice)}
                     min="0"
                     max="100"
                     value={settings.noiseReduction}
@@ -592,6 +599,7 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
                   </div>
                   <input
                     type="range"
+                    disabled={preset === 'eco' || Boolean(hardware?.isLowEndDevice)}
                     min="0"
                     max="100"
                     value={settings.sharpening}
@@ -610,6 +618,7 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
                   </div>
                   <input
                     type="range"
+                    disabled={preset === 'eco' || Boolean(hardware?.isLowEndDevice)}
                     min="0"
                     max="100"
                     value={settings.colorEnhancement}
@@ -625,9 +634,12 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
               <div className="p-3.5 rounded-xl bg-black/40 border border-white/8 flex items-center justify-between text-xs">
                 <div>
                   <p className="font-semibold text-white">Preserve Audio Track</p>
-                  <p className="text-[11px] text-zinc-400">Synchronize audio with upscale</p>
+                  <p className="text-[11px] text-zinc-400">
+                    {preset === 'eco' || hardware?.isLowEndDevice ? 'Audio is omitted in ECO mode' : 'Synchronize audio with upscale'}
+                  </p>
                 </div>
                 <button
+                  disabled={preset === 'eco' || Boolean(hardware?.isLowEndDevice)}
                   onClick={() =>
                     setSettings({ ...settings, preserveAudio: !settings.preserveAudio })
                   }
