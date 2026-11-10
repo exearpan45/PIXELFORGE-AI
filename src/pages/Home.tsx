@@ -106,7 +106,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectTab }) => {
           </div>
           <div className="flex items-center gap-2">
             <Cpu className="w-4 h-4 text-purple-400" />
-            <span>True 4K Neural Super-Resolution</span>
+            <span>4K Resolution Export</span>
           </div>
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-cyan-400" />
@@ -122,7 +122,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectTab }) => {
             Interactive Showcase
           </span>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
-            See the Neural Enhancement in Real Time
+            See Image Enhancement in Real Time
           </h2>
           <p className="text-xs sm:text-sm text-zinc-400 max-w-xl mx-auto">
             Drag the slider divider left and right to inspect the sub-pixel edge restoration and clarity.
@@ -134,7 +134,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectTab }) => {
             originalSrc={showcaseOriginal}
             enhancedSrc={showcaseEnhanced}
             originalLabel="Low-Res Input (480p)"
-            enhancedLabel="PIXELFORGE 4K Neural Tensor"
+            enhancedLabel="PIXELFORGE 4K Output"
             originalDims={{ width: 480, height: 640 }}
             enhancedDims={{ width: 1920, height: 2560 }}
           />
@@ -158,7 +158,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectTab }) => {
             <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 group-hover:scale-110 transition-transform">
               <Sparkles className="w-6 h-6" />
             </div>
-            <h3 className="text-lg font-bold text-white">AI Detail & Edge Synthesis</h3>
+            <h3 className="text-lg font-bold text-white">GPU Detail & Edge Filtering</h3>
             <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
               Synthesizes high-frequency details from directional gradient fields rather than simply blurring pixels with basic bicubic interpolation.
             </p>
@@ -253,7 +253,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectTab }) => {
 
           <div className="p-7 rounded-3xl bg-[#10101b] border border-white/10 space-y-3 relative">
             <span className="text-4xl font-extrabold font-mono text-purple-500/30">02</span>
-            <h3 className="text-base font-bold text-white">GPU Neural Super-Resolution</h3>
+            <h3 className="text-base font-bold text-white">GPU Image Enhancement</h3>
             <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
               Our WebGL / WebGPU pipeline executes directional edge synthesis, bilateral noise reduction, and detail restoration directly on your GPU.
             </p>
