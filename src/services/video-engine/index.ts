@@ -35,6 +35,13 @@ export interface VideoEnhanceResult {
 
 export type ProcessingSpeedMode = 'fast' | 'balanced' | 'quality';
 
+// Reuse one Web Audio source per video element so re-processing does not throw
+// InvalidStateError from createMediaElementSource being called twice.
+const audioGraphCache = new WeakMap<HTMLVideoElement, {
+  context: AudioContext;
+  source: MediaElementAudioSourceNode;
+}>();
+
 /**
  * Parses video metadata lightly WITHOUT reading the entire file ArrayBuffer
  * into memory, preventing memory bloat and startup browser lockup on 4GB RAM devices.
@@ -56,17 +63,16 @@ export async function parseVideoMetadata(file: File): Promise<{ metadata: VideoM
       const estimatedFps = 30;
       const totalFrames = Math.max(1, Math.round(duration * estimatedFps));
 
-      // Heuristic for audio presence
-      let hasAudio = false;
-      if (
-        (video as any).mozHasAudio !== undefined ||
-        Boolean((video as any).webkitAudioDecodedByteCount) ||
-        Boolean((video as any).audioTracks?.length)
-      ) {
-        hasAudio = true;
-      } else {
-        // Assume audio exists if file size > 500KB (typical for video clips)
-        hasAudio = file.size > 500000;
+      // Detect an actual audio track where the browser exposes MediaStream capture.
+      let hasAudio = Boolean((video as any).audioTracks?.length);
+      try {
+        const capture = (video as any).captureStream?.() || (video as any).mozCaptureStream?.();
+        if (capture) {
+          hasAudio = capture.getAudioTracks().length > 0;
+          capture.getTracks().forEach((track: MediaStreamTrack) => track.stop());
+        }
+      } catch {
+        // Keep the browser's native audioTracks result; never guess from file size.
       }
 
       resolve({
@@ -202,48 +208,48 @@ export class VideoEnhancerService {
       tracker.completeStage('gl_pipeline_init', 'Directional Tensor Shaders ready');
     }
 
-    // 6. Stage: Audio Track Preparation (Safe & Non-duplicative)
-    let audioBuffer = originalMetadata.audioBuffer || null;
+    // 6. Capture the original audio track through Web Audio without decoding
+    // the entire source file into a second in-memory AudioBuffer.
     let audioContext: AudioContext | null = null;
-    let audioSourceNode: AudioBufferSourceNode | null = null;
+    let audioSourceNode: MediaElementAudioSourceNode | null = null;
     let audioDestNode: MediaStreamAudioDestinationNode | null = null;
 
-    tracker.startStage('audio_stream_init', 'Audio Stream Preparation', 'Preparing audio preservation');
-    if (settings.preserveAudio && originalMetadata.hasAudio && originalMetadata.videoFile && effectivePreset !== 'eco') {
-      if (!audioBuffer) {
-        audioBuffer = await extractAudioBufferSafely(originalMetadata.videoFile);
-      }
-      if (audioBuffer) {
-        try {
-          const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-          if (AudioCtx) {
+    tracker.startStage('audio_stream_init', 'Audio Stream Capture', 'Capturing source audio without a full-file decode');
+    if (settings.preserveAudio && originalMetadata.hasAudio) {
+      try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          let graph = audioGraphCache.get(videoSource);
+          if (!graph) {
             audioContext = new AudioCtx();
-            if (audioContext.state === 'suspended') {
-              await audioContext.resume().catch(() => {});
-            }
-            audioDestNode = audioContext.createMediaStreamDestination();
-            audioSourceNode = audioContext.createBufferSource();
-            audioSourceNode.buffer = audioBuffer;
-            audioSourceNode.connect(audioDestNode);
-            tracker.completeStage('audio_stream_init', 'Stereo track extracted & synchronized');
+            videoSource.muted = false;
+            audioSourceNode = audioContext.createMediaElementSource(videoSource);
+            graph = { context: audioContext, source: audioSourceNode };
+            audioGraphCache.set(videoSource, graph);
+          } else {
+            audioContext = graph.context;
+            audioSourceNode = graph.source;
+            videoSource.muted = false;
           }
-        } catch (e: any) {
-          tracker.warnStage('audio_stream_init', `Audio notice: ${e.message}`);
+          if (audioContext.state === 'suspended') await audioContext.resume();
+          audioDestNode = audioContext.createMediaStreamDestination();
+          audioSourceNode.connect(audioDestNode);
+          tracker.completeStage('audio_stream_init', 'Original audio track routed to output stream');
+        } else {
+          tracker.warnStage('audio_stream_init', 'Web Audio is unavailable; output will be silent');
         }
-      } else {
-        tracker.completeStage('audio_stream_init', 'No audio stream found or preserved');
+      } catch (e: any) {
+        tracker.warnStage('audio_stream_init', `Audio capture unavailable: ${e.message || 'unknown error'}`);
       }
     } else {
       tracker.completeStage(
         'audio_stream_init',
-        effectivePreset === 'eco'
-          ? 'Audio skipped in ECO mode to protect low-memory devices'
-          : 'Preserve audio not requested or no audio'
+        settings.preserveAudio ? 'No source audio track detected' : 'Audio preservation disabled by user'
       );
     }
 
     // 7. Stage: Select lightweight 2D canvas for ECO, WebGL for stronger devices
-    tracker.startStage('buffer_allocation', 'Direct Stream Allocation', `Allocating ${targetW}×${targetH} WebGL canvas`);
+    tracker.startStage('buffer_allocation', 'Direct Stream Allocation', `Allocating ${targetW}×${targetH} output canvas`);
     await yieldThread(10);
     const ecoCanvas = effectivePreset === 'eco' ? document.createElement('canvas') : null;
     const ecoContext = ecoCanvas
@@ -276,22 +282,28 @@ export class VideoEnhancerService {
 
     if (audioDestNode) {
       const audioTracks = audioDestNode.stream.getAudioTracks();
-      if (audioTracks.length > 0) {
-        canvasStream.addTrack(audioTracks[0]);
-      }
+      if (audioTracks.length > 0) canvasStream.addTrack(audioTracks[0]);
     }
     tracker.completeStage('buffer_allocation', effectivePreset === 'eco' ? 'Lightweight 2D canvas stream connected' : 'WebGL canvas stream connected');
 
     // 8. Stage: Test Frame Extraction (Warming up video decoder)
     tracker.startStage('test_frame_extract', 'Test Frame Extraction', 'Seeking to 0.05s to prime decoder');
-    videoSource.currentTime = 0.05;
-    await new Promise<void>((res) => {
-      const onSeeked = () => {
+    videoSource.pause();
+    videoSource.currentTime = 0;
+    await new Promise<void>((resolve, reject) => {
+      if (videoSource.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && videoSource.currentTime === 0) {
+        resolve();
+        return;
+      }
+      const onSeeked = () => { cleanup(); resolve(); };
+      const onError = () => { cleanup(); reject(new Error('Could not seek to the first video frame.')); };
+      const cleanup = () => {
         videoSource.removeEventListener('seeked', onSeeked);
-        res();
+        videoSource.removeEventListener('error', onError);
       };
       videoSource.addEventListener('seeked', onSeeked, { once: true });
-      setTimeout(res, 300); // Safety timeout
+      videoSource.addEventListener('error', onError, { once: true });
+      setTimeout(() => { cleanup(); resolve(); }, 1500);
     });
     tracker.completeStage('test_frame_extract', 'Video frame decoder primed');
 
@@ -304,21 +316,21 @@ export class VideoEnhancerService {
 
     // 10. Stage: Encoder Configuration
     tracker.startStage('encoder_init', 'MediaRecorder Configuration', 'Selecting container and bitrate');
-    let mimeType = effectivePreset === 'eco' ? 'video/webm;codecs=vp8' : 'video/webm;codecs=vp9,opus';
+    let mimeType = audioDestNode
+      ? 'video/webm;codecs=vp8,opus'
+      : (effectivePreset === 'eco' ? 'video/webm;codecs=vp8' : 'video/webm;codecs=vp9');
     if (!MediaRecorder.isTypeSupported(mimeType)) {
-      mimeType = 'video/webm;codecs=vp8,opus';
+      mimeType = audioDestNode ? 'video/webm;codecs=vp8,opus' : 'video/webm;codecs=vp8';
       if (!MediaRecorder.isTypeSupported(mimeType)) {
         mimeType = 'video/webm';
-        if (!MediaRecorder.isTypeSupported(mimeType)) {
-          mimeType = '';
-        }
+        if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = '';
       }
     }
 
     // Conservative bitrate by preset to prevent encoder CPU stalls on Core i3
     const targetBitrate =
       effectivePreset === 'eco'
-        ? 1500000
+        ? 1200000
         : targetW >= 2560 ? 14000000 : 8000000;
 
     const recordedChunks: Blob[] = [];
@@ -338,93 +350,91 @@ export class VideoEnhancerService {
     };
     tracker.completeStage('encoder_init', `${mimeType || 'default'} @ ${(targetBitrate / 1000000).toFixed(1)} Mbps`);
 
-    // 11. Stage: Controlled Batch Processing with Adaptive CPU Workload Management
-    tracker.startStage('batch_processing', 'Controlled Batch Processing', 'Starting frame loop with watchdog protection');
-    recorder.start(250);
-    if (audioSourceNode) {
-      try {
-        audioSourceNode.start(0);
-      } catch {}
-    }
-
+    // 11. Record in real time. The previous seek-per-frame loop added a
+    // fixed wait to every frame, making exported videos play much slower.
+    tracker.startStage('batch_processing', 'Real-Time Video Capture', 'Recording playback at the ECO frame cap');
     const watchdog = new ResourceProtectionWatchdog(effectivePreset);
     const startTime = Date.now();
     let processedFrames = 0;
-    const stepSec = 1 / fps;
+    let lastDrawTime = -1;
+    let lastProgressTime = 0;
+    let rafId = 0;
+    let cancelled = false;
+
+    const stopTracks = () => canvasStream.getTracks().forEach((track) => track.stop());
+    const waitForPlayback = async () => {
+      if (cancellationToken?.isCancelled) throw new Error('Video processing was cancelled.');
+      if (cancellationToken?.isPaused) {
+        videoSource.pause();
+        await cancellationToken.checkPause();
+        if (cancellationToken?.isCancelled) throw new Error('Video processing was cancelled.');
+        await videoSource.play();
+      }
+    };
 
     try {
-      for (let i = 0; i < totalFrames; i++) {
-        // A. Cancellation Check
-        if (cancellationToken?.isCancelled) {
-          tracker.failStage('batch_processing', 'User cancelled processing');
-          throw new Error('Video processing was cancelled.');
-        }
+      videoSource.currentTime = 0;
+      recorder.start(1000);
+      await videoSource.play();
 
-        // B. Pause / Resume Check
-        if (cancellationToken?.isPaused) {
-          if (onProgress) {
-            onProgress({
-              stage: 'processing_frames',
-              percent: Math.min(99, Math.round((processedFrames / totalFrames) * 100)),
-              message: 'Processing Paused. Click Resume to continue.',
-              currentFrame: processedFrames,
-              totalFrames,
-              isPaused: true,
-              activePreset: effectivePreset,
-              diagnostics: tracker.getEvents(),
-            });
+      await new Promise<void>((resolve, reject) => {
+        const onEnded = () => { cleanup(); resolve(); };
+        const onError = () => { cleanup(); reject(new Error('Source video playback failed during processing.')); };
+        const cleanup = () => {
+          videoSource.removeEventListener('ended', onEnded);
+          videoSource.removeEventListener('error', onError);
+          if (rafId) cancelAnimationFrame(rafId);
+        };
+        videoSource.addEventListener('ended', onEnded, { once: true });
+        videoSource.addEventListener('error', onError, { once: true });
+
+        const tick = async (now: number) => {
+          try {
+            await waitForPlayback();
+            if (videoSource.paused && !videoSource.ended) {
+              rafId = requestAnimationFrame(tick);
+              return;
+            }
+            const currentTime = videoSource.currentTime;
+            if (lastDrawTime < 0 || currentTime - lastDrawTime >= stepSec) {
+              const frameStart = performance.now();
+              renderOutputFrame();
+              const frameLatency = performance.now() - frameStart;
+              processedFrames++;
+              lastDrawTime = currentTime;
+              const watchdogMetrics = watchdog.recordFrameRender(frameLatency);
+
+              if (onProgress && (now - lastProgressTime >= 500 || videoSource.ended)) {
+                lastProgressTime = now;
+                const percent = Math.min(99, Math.round((currentTime / Math.max(duration, 0.1)) * 100));
+                onProgress({
+                  stage: 'processing_frames',
+                  percent,
+                  message: `Captured ${processedFrames} frames • ${fps} FPS target`,
+                  currentFrame: processedFrames,
+                  totalFrames,
+                  elapsedTimeMs: Date.now() - startTime,
+                  estimatedRemainingMs: Math.max(0, (duration - currentTime) * 1000),
+                  fps,
+                  isPaused: false,
+                  activePreset: effectivePreset,
+                  diagnostics: tracker.getEvents(),
+                  watchdog: watchdogMetrics,
+                });
+              }
+            }
+            if (!videoSource.ended) rafId = requestAnimationFrame(tick);
+          } catch (error) {
+            cleanup();
+            reject(error);
           }
-          await cancellationToken.checkPause();
-        }
+        };
+        rafId = requestAnimationFrame(tick);
+      });
 
-        // C. Seek to exact frame timestamp
-        videoSource.currentTime = i * stepSec;
-        await new Promise<void>((r) => {
-          const onSeek = () => {
-            videoSource.removeEventListener('seeked', onSeek);
-            r();
-          };
-          videoSource.addEventListener('seeked', onSeek, { once: true });
-          setTimeout(r, 60); // Safety timeout
-        });
-
-        // D. Measure Frame Render Latency
-        const frameStart = performance.now();
-        renderOutputFrame();
-        const frameLatency = performance.now() - frameStart;
-        processedFrames++;
-
-        // E. Feed Watchdog & Apply Adaptive CPU Yield
-        const watchdogMetrics = watchdog.recordFrameRender(frameLatency);
-
-        // F. Calculate Progress and Remaining Time
-        const percent = Math.min(99, Math.round((processedFrames / totalFrames) * 100));
-        const elapsedMs = Date.now() - startTime;
-        const avgFrameMs = elapsedMs / processedFrames;
-        const remainingFrames = totalFrames - processedFrames;
-        const estimatedRemainingMs = Math.round(remainingFrames * avgFrameMs);
-        const liveFps = Math.max(1, Math.round(1000 / (avgFrameMs || 1)));
-
-        if (onProgress && (i % 2 === 0 || i === totalFrames - 1)) {
-          onProgress({
-            stage: 'processing_frames',
-            percent,
-            message: `Frame ${processedFrames}/${totalFrames} • ${liveFps} FPS • ${Math.ceil(estimatedRemainingMs / 1000)}s left`,
-            currentFrame: processedFrames,
-            totalFrames,
-            elapsedTimeMs: elapsedMs,
-            estimatedRemainingMs,
-            fps: liveFps,
-            isPaused: false,
-            activePreset: effectivePreset,
-            diagnostics: tracker.getEvents(),
-            watchdog: watchdogMetrics,
-          });
-        }
-
-        // G. Adaptive CPU Yield (Prevents 98% CPU freeze & lets browser event loop breathe)
-        await yieldThread(watchdog.getYieldDelay());
-      }
+      // Ensure the final decoded frame is included.
+      renderOutputFrame();
+      tracker.completeStage('batch_processing', `Captured ${processedFrames} frames`);
 
       tracker.completeStage('batch_processing', `Completed all ${processedFrames} frames`);
 
@@ -434,7 +444,7 @@ export class VideoEnhancerService {
         onProgress({
           stage: 'encoding',
           percent: 99,
-          message: 'Packing final video stream with synchronized audio...',
+          message: audioDestNode ? 'Finalizing video with captured source audio...' : 'Finalizing video output...',
           diagnostics: tracker.getEvents(),
         });
       }
@@ -444,7 +454,8 @@ export class VideoEnhancerService {
           const finalBlob = new Blob(recordedChunks, { type: mimeType || 'video/webm' });
           resolve(finalBlob);
         };
-        recorder.stop();
+        if (recorder.state !== 'inactive') recorder.stop();
+        else resolve(new Blob(recordedChunks, { type: mimeType || 'video/webm' }));
       });
 
       const videoUrl = URL.createObjectURL(videoBlob);
@@ -467,19 +478,15 @@ export class VideoEnhancerService {
         duration,
         sizeBytes: videoBlob.size,
         format: mimeType.includes('mp4') ? 'video/mp4' : 'video/webm',
-        hasAudio: Boolean(audioBuffer),
+        hasAudio: Boolean(audioDestNode && audioDestNode.stream.getAudioTracks().length > 0),
       };
     } finally {
-      if (audioSourceNode) {
-        try {
-          audioSourceNode.stop();
-          audioSourceNode.disconnect();
-        } catch {}
+      videoSource.pause();
+      if (audioSourceNode && audioDestNode) {
+        try { audioSourceNode.disconnect(audioDestNode); } catch {}
       }
-      if (audioContext && audioContext.state !== 'closed') {
-        audioContext.close().catch(() => {});
-      }
-      canvasStream.getTracks().forEach((t) => t.stop());
+      if (audioDestNode) audioDestNode.stream.getTracks().forEach((track) => track.stop());
+      stopTracks();
     }
   }
 
