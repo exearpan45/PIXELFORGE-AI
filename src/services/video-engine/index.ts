@@ -359,7 +359,7 @@ export class VideoEnhancerService {
     let lastDrawTime = -1;
     let lastProgressTime = 0;
     let rafId = 0;
-    let cancelled = false;
+    const stepSec = 1 / fps;
 
     const stopTracks = () => canvasStream.getTracks().forEach((track) => track.stop());
     const waitForPlayback = async () => {
@@ -434,9 +434,7 @@ export class VideoEnhancerService {
 
       // Ensure the final decoded frame is included.
       renderOutputFrame();
-      tracker.completeStage('batch_processing', `Captured ${processedFrames} frames`);
-
-      tracker.completeStage('batch_processing', `Completed all ${processedFrames} frames`);
+      tracker.completeStage('batch_processing', `Captured ${processedFrames} frames at a target of ${fps} FPS`);
 
       // 12. Finalizing & Encoding
       tracker.startStage('finalizing', 'Finalizing Video File', 'Packing video chunks');
