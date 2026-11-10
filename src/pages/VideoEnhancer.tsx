@@ -154,7 +154,7 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
       onNotify(
         'warning',
         'Low-resource video mode',
-        'Output is limited to at most 1280×720 at 8 FPS. ECO mode omits audio to avoid loading the full video into memory.'
+        'Low-resource mode caps output at 1280×720 and 8 FPS. Source audio is captured separately without decoding the entire video file.'
       );
     }
 
@@ -540,7 +540,7 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
                   <div>
                     <span className="font-semibold text-emerald-300">Low-Resource Protection Active</span>
                     <p className="text-[11px] text-zinc-400 mt-0.5">
-                      Uses lightweight 2D scaling, caps output at 1280×720 and 8 FPS, and skips audio decoding. This reduces workload but cannot guarantee every device will remain responsive.
+                      Uses lightweight 2D scaling, caps output at 1280×720 and 8 FPS, and captures source audio separately. This reduces workload but cannot guarantee every device will remain responsive.
                     </p>
                   </div>
                 </div>
@@ -635,11 +635,10 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
                 <div>
                   <p className="font-semibold text-white">Preserve Audio Track</p>
                   <p className="text-[11px] text-zinc-400">
-                    {preset === 'eco' || hardware?.isLowEndDevice ? 'Audio is omitted in ECO mode' : 'Synchronize audio with upscale'}
+                    {preset === 'eco' || hardware?.isLowEndDevice ? 'Capture source audio without full-file decoding' : 'Synchronize audio with upscale'}
                   </p>
                 </div>
                 <button
-                  disabled={preset === 'eco' || Boolean(hardware?.isLowEndDevice)}
                   onClick={() =>
                     setSettings({ ...settings, preserveAudio: !settings.preserveAudio })
                   }
