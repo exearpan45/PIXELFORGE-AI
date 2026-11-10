@@ -418,6 +418,14 @@ export class WebGLSuperResolutionPipeline {
       return this.fallback2D(source, sourceWidth, sourceHeight, targetWidth, targetHeight, settings, destinationCanvas);
     }
 
+    // Some integrated GPUs expose a smaller maximum texture size. Fall back
+    // before issuing invalid GL allocations, while preserving exact output dimensions.
+    const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
+    if (targetWidth > maxTextureSize || targetHeight > maxTextureSize ||
+        sourceWidth > maxTextureSize || sourceHeight > maxTextureSize) {
+      return this.fallback2D(source, sourceWidth, sourceHeight, targetWidth, targetHeight, settings, destinationCanvas);
+    }
+
     if (this.canvas.width !== targetWidth || this.canvas.height !== targetHeight) {
       this.canvas.width = targetWidth;
       this.canvas.height = targetHeight;
