@@ -255,7 +255,7 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
     a.href = enhancedResult.videoUrl;
     const ext = enhancedResult.format.includes('mp4') ? 'mp4' : 'webm';
     const baseName = videoFile ? videoFile.name.replace(/\.[^/.]+$/, '') : 'pixelforge_enhanced';
-    a.download = `${baseName}_${settings.resolution}_enhanced.${ext}`;
+    a.download = `${baseName}_${enhancedResult.targetWidth}x${enhancedResult.targetHeight}_enhanced.${ext}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
