@@ -221,7 +221,7 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
         isPaused: true,
         message: 'Processing Paused. System resources released.',
       }));
-      onNotify('info', 'Processing Paused', 'CPU and GPU execution yielded safely to the OS.');
+      onNotify('info', 'Processing Paused', 'Video playback paused and frame capture stopped until you resume.');
     }
   };
 
