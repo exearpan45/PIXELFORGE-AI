@@ -1,48 +1,69 @@
-# PIXELFORGE AI: Deployment and Video Smoke-Test Report
+# PIXELFORGE AI: Production Regression Report
 
 **Test date:** 10 November 2026  
-**Test type:** Production build verification and remote-browser functional smoke test  
-**Important:** The remote browser is not the user's physical Dell laptop. No claim is made here about the user's actual CPU percentage, temperature, or system-wide RAM use.
+**Deployment:** `pixelforge-ai-three.vercel.app`  
+**Test type:** Production build plus remote-browser functional tests. The remote browser is not the user's physical Dell laptop.
 
-## Production build
+## Build
 
-- Vercel production deployment built successfully from the `main` branch.
-- Vite production build completed successfully.
-- Dependency audit reported 0 vulnerabilities.
-- Remaining build warnings include the existing Vite `__dirname` configuration warning and npm install-script notices. They did not fail the build.
+- Vercel production deployment: READY.
+- Vite production build: successful; 1,682 modules transformed.
+- npm audit: 0 reported vulnerabilities.
+- Non-blocking warnings remain for Vite's `__dirname` config usage and npm install-script approvals.
 
-## Video smoke test
+## Portrait image 4K test
 
-**Input:** Built-in synthetic demo clip, 640 × 360, approximately 3 seconds, no audio track.  
-**Remote browser profile reported by the app:** 2 logical processor threads and a 4 GB device-memory class.
+**Input:** Built-in portrait sample, 600 × 800.  
+**Expected aspect-preserving 4K:** 2160 × 3840.
 
 | Check | Result |
 |---|---|
-| Video workspace loaded | PASS |
-| Built-in demo clip generated and loaded | PASS |
-| ECO mode selected for constrained profile | PASS |
-| Output capped at 1280 × 720 | PASS |
-| ECO frame rate cap shown as 8 FPS | PASS |
-| Video enhancement completed | PASS |
-| Output file produced as WebM | PASS |
-| Actual output dimensions displayed as 1280 × 720 | PASS |
-| ECO audio omission disclosed | PASS |
-| Inactive detail/denoise/sharpen/color controls disabled | PASS |
-| Audio toggle disabled in ECO | PASS |
-| Fake CPU percentage removed from monitor | PASS |
-| Output no longer falsely labeled 4K | PASS |
-| Browser tab remained responsive during the short test | PASS |
-| Visible runtime errors during the test | None observed |
+| Image enhancement completed | PASS |
+| Actual rendered output image naturalWidth | 2160 |
+| Actual rendered output image naturalHeight | 3840 |
+| Aspect ratio preserved | PASS |
+| Output dimensions verified from image element, not filename | PASS |
 
-The remote test produced a 1280 × 720 WebM output (about 38.5 KB in the final run) from the 640 × 360 sample. ECO intentionally omits audio and uses basic 2D canvas interpolation rather than the heavier WebGL enhancement shader.
+This confirms the browser-rendered result is a real 2160 × 3840 pixel image. It verifies pixel dimensions, not AI-generated detail quality. The current image pipeline is WebGL shader-based filtering/interpolation, not a trained neural super-resolution model.
+
+## Video timing and responsiveness test
+
+**Input:** Built-in synthetic sample, 640 × 360, approximately 2.92 seconds, no audio.
+
+| Check | Result |
+|---|---|
+| ECO processing completed | PASS |
+| Actual output dimensions | 1280 × 720 |
+| Source duration | 2.925 seconds |
+| Output duration | 2.775 seconds |
+| Browser tab responsiveness | PASS |
+| Visible runtime errors | None observed |
+
+The output duration is close to the source duration. The previous seek-per-frame implementation could add substantial artificial delay; the replacement records source playback in real time and samples frames at the ECO cap.
+
+## Audio-preservation test
+
+**Input:** Synthetic 2-second 320 × 180 WebM generated in the remote browser with a moving canvas and a low-volume oscillator audio track. No personal media used.
+
+| Check | Result |
+|---|---|
+| Source audio detected by the app | PASS |
+| ECO processing completed | PASS |
+| Output dimensions | 640 × 360 |
+| Output audio tracks | 1 |
+| Output playback | PASS |
+| Browser tab responsiveness | PASS |
+| Visible runtime errors | None observed |
+
+This validates the Web Audio audio-track path in the remote test browser. Other codecs and browser combinations may behave differently.
 
 ## Not verified
 
 - CPU percentage, temperature, or total RAM use on the user's Dell Inspiron 15 3558.
-- Long videos, high-resolution source videos, or videos containing audio.
-- Sustained processing over several minutes on the target laptop.
-- Whether every browser/driver/codec combination remains responsive.
+- Long videos, high-resolution videos, and sustained multi-minute workloads on that laptop.
+- Audio preservation for every input codec/container combination.
+- Whether the user's local ChromeOS/Linux browser and Intel HD 5500 driver remain responsive under sustained processing.
 
 ## Conclusion
 
-The production build and short remote-browser ECO smoke test passed. The ECO pipeline is materially lighter by design: it limits output to 1280 × 720, caps processing at 8 FPS, uses 2D canvas scaling, and avoids full-file audio decoding. These changes reduce the workload, but only a controlled test on the user's own laptop can confirm whether that machine still reaches 100% CPU or freezes.
+The deployed remote tests verify portrait 4K pixel dimensions, near-source video duration, and one synthetic audio track preserved in ECO mode. They do not establish that the user's physical laptop will never reach 100% CPU or freeze. A short local test on the Dell is still required for that hardware-specific claim.
