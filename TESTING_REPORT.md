@@ -1,44 +1,48 @@
-# PIXELFORGE AI — Quality Assurance & Optimization Test Report
+# PIXELFORGE AI: Deployment and Video Smoke-Test Report
 
-**Target Platform:** PIXELFORGE AI (Photo & Video AI Upscaler to 4K)  
-**Execution Mode:** 100% Client-Side Hardware Acceleration  
-**Test Date:** November 2026  
+**Test date:** 10 November 2026  
+**Test type:** Production build verification and remote-browser functional smoke test  
+**Important:** The remote browser is not the user's physical Dell laptop. No claim is made here about the user's actual CPU percentage, temperature, or system-wide RAM use.
 
----
+## Production build
 
-## 1. Video Processing & Audio Engine Test Results
+- Vercel production deployment built successfully from the `main` branch.
+- Vite production build completed successfully.
+- Dependency audit reported 0 vulnerabilities.
+- Remaining build warnings include the existing Vite `__dirname` configuration warning and npm install-script notices. They did not fail the build.
 
-### TEST A: Audio Preservation & Synchronization
-- **Test:** Uploaded video with stereo AAC audio track.
-- **Old Behavior:** Audio was silent or dropped due to programmatic `<video>` autoplay restrictions and canvas stream re-encoding.
-- **Fixed Behavior:** Decodes raw audio directly from file bytes using `AudioContext.decodeAudioData()`. Injects original audio buffer through `AudioBufferSourceNode` directly into `MediaStreamDestination`.
-- **Result:** **PASS (100% Audio Retained)**. Audio track verified, duration synchronized to $\pm 10\text{ms}$, zero dropped channels.
+## Video smoke test
 
-### TEST B: 4K Resolution Accuracy
-- **Test:** Uploaded 720p (1280×720) and square 1080×1080 source files; selected 4K UHD.
-- **Result:** **PASS**. Output rendered at exact $3840 \times 2160$ for 16:9, and $2160 \times 2160$ for 1:1 square media. Verified with exact canvas pixel dimensions and video stream metadata.
+**Input:** Built-in synthetic demo clip, 640 × 360, approximately 3 seconds, no audio track.  
+**Remote browser profile reported by the app:** 2 logical processor threads and a 4 GB device-memory class.
 
-### TEST C: Visual Super-Resolution Quality
-- **Test:** Inspected fine edge definition, fabric textures, text clarity, and facial features.
-- **Old Behavior:** Soft bilinear blur due to low-res kernel spacing ($1/\text{srcRes}$).
-- **Fixed Behavior:** Upgraded to 12-tap Directional Tensor Resampling + Contrast Adaptive Sharpening (CAS) operating at the **target 4K sub-pixel grid** ($1/\text{u\_resolution}$).
-- **Result:** **PASS**. Clean diagonal edges, zero staircasing, zero macroblock blurring, realistic skin warmth and iris definition.
+| Check | Result |
+|---|---|
+| Video workspace loaded | PASS |
+| Built-in demo clip generated and loaded | PASS |
+| ECO mode selected for constrained profile | PASS |
+| Output capped at 1280 × 720 | PASS |
+| ECO frame rate cap shown as 8 FPS | PASS |
+| Video enhancement completed | PASS |
+| Output file produced as WebM | PASS |
+| Actual output dimensions displayed as 1280 × 720 | PASS |
+| ECO audio omission disclosed | PASS |
+| Inactive detail/denoise/sharpen/color controls disabled | PASS |
+| Audio toggle disabled in ECO | PASS |
+| Fake CPU percentage removed from monitor | PASS |
+| Output no longer falsely labeled 4K | PASS |
+| Browser tab remained responsive during the short test | PASS |
+| Visible runtime errors during the test | None observed |
 
-### TEST D: Processing Speed & ETA Benchmarks
+The remote test produced a 1280 × 720 WebM output (about 38.5 KB in the final run) from the 640 × 360 sample. ECO intentionally omits audio and uses basic 2D canvas interpolation rather than the heavier WebGL enhancement shader.
 
-| Video Duration | Previous Pipeline Speed | New Turbo Pipeline Speed | Speedup Factor |
-|---|---|---|---|
-| **3.0 Seconds (Demo Clip)** | ~18.5 seconds (stalled seeks) | **1.8 seconds** | **~10.2x Faster** |
-| **10.0 Seconds (720p)** | ~52.0 seconds | **4.6 seconds** | **~11.3x Faster** |
-| **30.0 Seconds (1080p)** | ~160.0 seconds | **14.2 seconds** | **~11.2x Faster** |
+## Not verified
 
-- **ETA Accuracy:** Dynamic countdown calculated from active frame processing rate and remaining video duration.
+- CPU percentage, temperature, or total RAM use on the user's Dell Inspiron 15 3558.
+- Long videos, high-resolution source videos, or videos containing audio.
+- Sustained processing over several minutes on the target laptop.
+- Whether every browser/driver/codec combination remains responsive.
 
-### TEST E: Reliability, Tile Elimination & Cancellation
-- **Tile Artifact Elimination:** Standard images up to 4K now process in a single unified GPU draw call, completely eliminating the negative crop offset bug that caused black rectangular voids.
-- **Cancellation:** Safely terminates frame animation loop, pauses media, closes temporary audio contexts, and revokes object URLs.
+## Conclusion
 
----
-
-## 2. Conclusion
-All critical bugs (disappearing audio, slow video encoding, black tile artifacts, and inaccurate ETA) are resolved with zero paid APIs and 100% on-device hardware efficiency.
+The production build and short remote-browser ECO smoke test passed. The ECO pipeline is materially lighter by design: it limits output to 1280 × 720, caps processing at 8 FPS, uses 2D canvas scaling, and avoids full-file audio decoding. These changes reduce the workload, but only a controlled test on the user's own laptop can confirm whether that machine still reaches 100% CPU or freezes.
