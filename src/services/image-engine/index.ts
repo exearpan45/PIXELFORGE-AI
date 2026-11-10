@@ -109,6 +109,14 @@ export class ImageEnhancerService {
       lowMemoryMode
     );
 
+    // Never report a requested preset as successful unless the actual canvas
+    // has exactly those pixel dimensions.
+    if (resultCanvas.width !== targetW || resultCanvas.height !== targetH) {
+      throw new Error(
+        `Output dimension mismatch: expected ${targetW}×${targetH}, got ${resultCanvas.width}×${resultCanvas.height}.`
+      );
+    }
+
     if (onProgress) {
       onProgress({
         stage: 'finalizing',
