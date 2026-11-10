@@ -27,7 +27,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
           </div>
           <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-400 shrink-0">
             <span className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-black/40 border border-white/10">
-              <Cpu className="w-3.5 h-3.5 text-purple-400" /> Hardware Accelerated
+              <Cpu className="w-3.5 h-3.5 text-purple-400" /> Browser-Accelerated When Available
             </span>
             <span className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-black/40 border border-white/10">
               <Shield className="w-3.5 h-3.5 text-emerald-400" /> ₹0 Budget • Zero Server
@@ -46,7 +46,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
               <span className="font-extrabold text-sm text-white tracking-wider">PIXELFORGE AI</span>
             </div>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Professional-grade browser-based super-resolution platform. Turn low quality images and videos into ultra 4K quality with local GPU acceleration.
+              Browser-based image and video enhancement tools with device-aware processing modes and local file handling.
             </p>
           </div>
 
@@ -102,7 +102,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab }) => {
             <h5 className="text-xs font-semibold uppercase tracking-wider text-white">Studio Highlights</h5>
             <p className="text-xs text-zinc-400">100% Private to Your Device</p>
             <p className="text-xs text-zinc-400">Zero Cloud File Uploads</p>
-            <p className="text-xs text-zinc-400">Instant Lossless 4K Export</p>
+            <p className="text-xs text-zinc-400">High-Resolution Export Options (Device-Dependent)</p>
             <p className="text-xs text-zinc-400">No Subscriptions or Watermarks</p>
           </div>
         </div>
