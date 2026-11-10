@@ -121,7 +121,7 @@ export const PhotoEnhancer: React.FC<PhotoEnhancerProps> = ({ preferences, onNot
       );
 
       setResult(enhanceResult);
-      onNotify('success', '4K AI Enhancement Completed!', `Upscaled to ${enhanceResult.targetWidth}×${enhanceResult.targetHeight}`);
+      onNotify('success', '4K Image Export Completed!', `Upscaled to ${enhanceResult.targetWidth}×${enhanceResult.targetHeight}`);
 
       // Save to project history
       if (preferences.autoSaveHistory) {
@@ -208,10 +208,10 @@ export const PhotoEnhancer: React.FC<PhotoEnhancerProps> = ({ preferences, onNot
             <span className="text-zinc-500 text-xs">• Zero Cloud Upload</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-1">
-            AI Photo Upscaler to 4K
+            Photo Upscaler to 4K
           </h1>
           <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-            Super-resolve low-resolution photos using client-side GPU neural tensor kernels.
+            Upscale images to exact target pixel dimensions with client-side WebGL filters and edge sharpening.
           </p>
         </div>
 
@@ -318,7 +318,7 @@ export const PhotoEnhancer: React.FC<PhotoEnhancerProps> = ({ preferences, onNot
                   <h3 className="text-sm font-bold text-white tracking-wide">Enhancement Controls</h3>
                 </div>
                 <span className="text-[11px] font-mono text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
-                  Neural Model
+                  WebGL Filter Pipeline
                 </span>
               </div>
 
@@ -355,7 +355,7 @@ export const PhotoEnhancer: React.FC<PhotoEnhancerProps> = ({ preferences, onNot
                 {/* 1. Detail Restoration */}
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-xs">
-                    <span className="font-medium text-zinc-300">AI Detail Restoration</span>
+                    <span className="font-medium text-zinc-300">Detail & Edge Enhancement</span>
                     <span className="font-mono text-purple-400">{settings.detailRestoration}%</span>
                   </div>
                   <input
