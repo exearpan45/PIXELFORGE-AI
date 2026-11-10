@@ -154,7 +154,7 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
       onNotify(
         'warning',
         'Low-resource video mode',
-        'Low-resource mode caps output at 1280×720 and 8 FPS. Source audio is captured separately without decoding the entire video file.'
+        'Low-resource mode caps output at 854×480 and 5 FPS, and limits clips to 30 seconds / 100 MB to reduce freezing risk.'
       );
     }
 
@@ -303,7 +303,7 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
             Video Upscaler & Enhancer
           </h1>
           <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-            Upscale video locally in your browser. Audio support depends on the selected processing mode.
+            Upscale video locally in your browser. Low-resource processing uses reduced resolution and frame rate to limit CPU load.
           </p>
         </div>
 
@@ -540,7 +540,7 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
                   <div>
                     <span className="font-semibold text-emerald-300">Low-Resource Protection Active</span>
                     <p className="text-[11px] text-zinc-400 mt-0.5">
-                      Uses lightweight 2D scaling, caps output at 1280×720 and 8 FPS, and captures source audio separately. This reduces workload but cannot guarantee every device will remain responsive.
+                      Uses low-load 2D scaling at up to 854×480 and 5 FPS. ECO is limited to 30-second, 100 MB clips. Detail and color adjustments remain available; this cannot guarantee every device will remain responsive.
                     </p>
                   </div>
                 </div>
@@ -549,7 +549,7 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
               {/* Sliders */}
               {(preset === 'eco' || hardware?.isLowEndDevice) && (
                 <p className="text-[11px] leading-relaxed text-emerald-200/80">
-                  ECO uses lightweight canvas scaling. Detail, denoise, sharpening, and color controls are disabled in this mode.
+                  ECO uses lightweight canvas scaling. Detail and color adjustments are available; denoise and sharpening are disabled to protect older CPUs.
                 </p>
               )}
               <div className="space-y-4 pt-1">
@@ -561,7 +561,6 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
                   </div>
                   <input
                     type="range"
-                    disabled={preset === 'eco' || Boolean(hardware?.isLowEndDevice)}
                     min="0"
                     max="100"
                     value={settings.detailRestoration}
@@ -618,7 +617,6 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
                   </div>
                   <input
                     type="range"
-                    disabled={preset === 'eco' || Boolean(hardware?.isLowEndDevice)}
                     min="0"
                     max="100"
                     value={settings.colorEnhancement}
@@ -667,7 +665,7 @@ export const VideoEnhancer: React.FC<VideoEnhancerProps> = ({ preferences, onNot
                   </span>
                 </button>
                 <p className="text-[11px] text-zinc-500 text-center mt-2">
-                  100% Client-Side Engine • Hardware Protected
+                  Client-side processing • ECO workload limits
                 </p>
               </div>
             </div>
