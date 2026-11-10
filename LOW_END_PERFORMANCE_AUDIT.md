@@ -18,6 +18,7 @@
 - ECO skips full-file audio decoding to avoid allocating a second copy of a large video in memory. Audio is therefore not included in ECO exports.
 - ECO uses a lower-bitrate VP8 WebM export path.
 - Balanced and Quality presets are disabled when the hardware detector classifies the device as low-end.
+- ECO-only enhancement sliders and the audio-preservation toggle are disabled because those controls are not applied by the lightweight 2D path.
 - The UI now reports actual output dimensions and no longer labels a 1280 × 720 file as 4K.
 - The workload monitor now shows frame-render timing and JavaScript heap information only. It explicitly states that browsers cannot report system-wide CPU percentage or total RAM use.
 
